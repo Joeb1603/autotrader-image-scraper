@@ -7,11 +7,12 @@ from bs4 import BeautifulSoup
 import requests
 import webbrowser
 
-
 from selenium import webdriver
 from selenium.webdriver.common.by import By
-
 from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.support.wait import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+
 
 options = webdriver.ChromeOptions()
 options.add_experimental_option("detach", True)
@@ -19,60 +20,44 @@ options.add_experimental_option('excludeSwitches', ['enable-logging'])
 driver = webdriver.Chrome(options=options)
 
 print("\n\n\n")
-driver.get("https://www.selenium.dev/selenium/web/web-form.html")
+
+mx5_1 = "https://www.autotrader.co.uk/car-details/202310142996962"
+mx5_2 = "https://www.autotrader.co.uk/car-details/202401125480291"
+
+driver.get(mx5_1)
 
 title = driver.title
 print(f"The title is: {title}")
 
 driver.implicitly_wait(0.5)
 
-text_box = driver.find_element(by=By.NAME, value="my-text")
-submit_button = driver.find_element(by=By.CSS_SELECTOR, value="button")
 
-text_box.send_keys("Selenium")
-submit_button.click()
+cookie_frame_id = "sp_message_iframe_982392" #id
+cookie_button_id = "/html/body/div/div[2]/div[4]/button[3]"
 
-message = driver.find_element(by=By.ID, value="message")
-text = message.text
+cookie_frame = driver.find_element(By.ID, cookie_frame_id)
 
-print(f"THE TEXT IS: {text}")
+wait = WebDriverWait(driver, 1)
+wait.until(EC.frame_to_be_available_and_switch_to_it(cookie_frame))
 
-print("\n\n\n")
-
-
-#driver.quit()
-'''driver = webdriver.Chrome()
-
-#driver.get("https://www.autotrader.co.uk/car-details/202310142996962")
-driver.get("https://www.selenium.dev/selenium/web/web-form.html")
-
-driver.implicitly_wait(0.5)
-#cookies_button_class = "message-component message-button no-children focusable sp_choice_type_11 last-focusable-el"
-#cookies_button = driver.find_element(by=By.CSS_SELECTOR, value="button")
-
-#driver.find_element(By.CLASS_NAME, "message-component message-button no-children focusable sp_choice_type_11 last-focusable-el")
-#cookies_button.click()
+cookie_button = wait.until(EC.element_to_be_clickable((By.XPATH, cookie_button_id)))
+cookie_button.click()
 
 
-driver.implicitly_wait(100)
-driver.quit()'''
+buttons_to_click = ['/html/body/div[1]/main/div/div[2]/article/section[1]/div/div/div[1]/button[2]',
+                    "/html/body/div[2]/div[2]/div/section/div[2]/div/div/div/div[2]/ul/li[1]/button/div/div/div/div/div/picture/div/img"]
 
-#this mad
 
-'''page_url = "https://www.geeksforgeeks.org/"
-#"https://www.autotrader.co.uk/car-details/202310142996962?sort=relevance&body-type=Convertible&postcode=NE16an&advertising-location=at_cars&fromsra"
+for button in buttons_to_click:
+    driver.find_element(By.XPATH, button).click()
 
-page_data = requests.get(page_url) 
 
-soup = BeautifulSoup(page_data.content, "html.parser")
-#print(soup)
+next_img_button_id = "/html/body/div[3]/div[2]/div/section/div[2]/div/div/div/div[2]/div/button[2]"
+while True:
+    try:
+        driver.find_element(By.XPATH, next_img_button_id).click()
+    except:
+        print("All images seen")
+        break
 
-images = soup.find_all('img')
-
-if len(images)>0:
-    first_image = images[0]['src']
-    print(first_image)
-    webbrowser.open(first_image)
-else:
-    print("No images found")'''
 
