@@ -26,7 +26,10 @@ print("\n\n\n")
 mx5_1 = "https://www.autotrader.co.uk/car-details/202310142996962"
 mx5_2 = "https://www.autotrader.co.uk/car-details/202401125480291"
 
-driver.get(mx5_1)
+driver.get(mx5_2)
+
+current_url = driver.current_url
+print(f"URL: {current_url}")
 
 title = driver.title
 print(f"The title is: {title}")
