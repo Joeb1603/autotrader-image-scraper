@@ -7,29 +7,27 @@ from bs4 import BeautifulSoup
 import requests
 import webbrowser
 from PIL import Image
+import os 
 
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.support.wait import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-
+from selenium.common.exceptions import NoSuchElementException, ElementNotInteractableException
 
 options = webdriver.ChromeOptions()
 options.add_experimental_option("detach", True)
 options.add_experimental_option('excludeSwitches', ['enable-logging'])
 driver = webdriver.Chrome(options=options)
 
+driver.implicitly_wait(0.5)
+
 print("\n\n\n")
 
 def load_page(url):
     # Set stuff up
     driver.get(url)
-
-mx5_1 = "https://www.autotrader.co.uk/car-details/202310142996962"
-mx5_2 = "https://www.autotrader.co.uk/car-details/202401125480291"
-
-load_page(mx5_2)
 
 def print_page_details():
     current_url = driver.current_url
@@ -38,66 +36,77 @@ def print_page_details():
     title = driver.title
     print(f"The title is: {title}")
 
-    driver.implicitly_wait(0.5)
-
-print_page_details()
 
 def accept_cookies():
     # Accept the cookies
     cookie_frame_id = "sp_message_iframe_982392" 
     cookie_button_id = "/html/body/div/div[2]/div[4]/button[3]"
 
-
     cookie_frame = driver.find_element(By.ID, cookie_frame_id)
 
-    #wait = WebDriverWait(driver, 1)
-    #wait.until(EC.frame_to_be_available_and_switch_to_it(cookie_frame))
     driver.switch_to.frame(cookie_frame)
     driver.find_element(By.XPATH, cookie_button_id).click()
     driver.switch_to.default_content()
 
-    #cookie_button = wait.until(EC.element_to_be_clickable((By.XPATH, cookie_button_id)))
-    #cookie_button.click()
+def cookie_box_visible():
 
-
-    driver.implicitly_wait(0.5)
-
-accept_cookies()
-
+    try:
+        cookie_frame_id = "sp_message_iframe_982392" 
+        driver.find_element(By.ID, cookie_frame_id)
+        return True
+    except NoSuchElementException:
+        return False
+    
 def collect_page_pics():
-    # Click onto the firest image of the image gallery
-    buttons_to_click = ['/html/body/div[1]/main/div/div[2]/article/section[1]/div/div/div[1]/button[2]',
-                            "/html/body/div[2]/div[2]/div/section/div[2]/div/div/div/div[2]/ul/li[1]/button/div/div/div/div/div/picture/div/img"]
+    
+    driver.find_element(By.CLASS_NAME, 'image-gallery-button').click()
 
-
-    for button in buttons_to_click:
-        driver.find_element(By.XPATH, button).click()
-
-    driver.implicitly_wait(0.5)
-
-    # Go and click through all the images and download them 
-    images_parent_div_id = '/html/body/div[3]/div[2]/div/section/div[2]/div/div/div/div[2]/div/div/div'
-    next_img_button_id = "/html/body/div[3]/div[2]/div/section/div[2]/div/div/div/div[2]/div/button[2]"
+    driver.find_element(By.ID, 'image-0').find_element(By.TAG_NAME, 'button').click()
 
     from pathlib import Path
     Path("images").mkdir(parents=False, exist_ok=True)
 
-    x=0
+    images = driver.find_element(By.CLASS_NAME, "fullscreen-modal").find_elements(By.CLASS_NAME, "slick-slide")
+    
+    print(f'\n\nIMAGES: {len(images)}')
     while True:
-        x+=1
         try:
-            current_url = driver.find_element(By.XPATH, images_parent_div_id).find_element(By.CLASS_NAME, "slick-current").find_element(By.TAG_NAME, 'img').get_attribute("src")
-            
-            data = requests.get(current_url).content 
-            with open(f'images/{x}.png','wb') as handler:
-                handler.write(data) 
-
-            driver.find_element(By.XPATH, next_img_button_id).click()
-            driver.implicitly_wait(0.5)
-        except:
-            print("All images should be done")
+            driver.find_element(By.CLASS_NAME, "show-gallery").find_element(By.CLASS_NAME, "iVKNPy").click()
+        except ElementNotInteractableException:
+            print("while true loop done")
             break
 
-collect_page_pics()
+    img_elements = driver.find_element(By.CLASS_NAME, "fullscreen-modal").find_elements(By.TAG_NAME, "img")
+    print(f'images?:{len(img_elements)}\n\n')
+
+    if (len(images)!=len(img_elements)):
+        print("Not all the images are loaded, something has gone wrong")
+
+    current_index=len(os.listdir("images"))
+    for element in img_elements:
+        current_url = element.get_attribute("src")
+        data = requests.get(current_url).content 
+        with open(f'images/{current_index}.png','wb') as handler:
+            handler.write(data) 
+        current_index+=1
+
+def process_page(url):
+    load_page(url)
+    print_page_details()
+    if cookie_box_visible():
+        accept_cookies()
+    collect_page_pics()
+
+def process_list(url_list):
+    for current_url in url_list:
+        process_page(current_url)
+
+cars = ["https://www.autotrader.co.uk/car-details/202312235033722",
+        "https://www.autotrader.co.uk/car-details/202401125480291",
+        "https://www.autotrader.co.uk/car-details/202310293448704",
+        "https://www.autotrader.co.uk/car-details/202312154833791",
+        "https://www.autotrader.co.uk/car-details/202311214162461"]
+
+process_list(cars)
 
 print("\n\n\n")
