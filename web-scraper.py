@@ -8,6 +8,8 @@ import requests
 import webbrowser
 from PIL import Image
 import os 
+import time
+import shutil
 
 from selenium import webdriver
 from selenium.webdriver.common.by import By
@@ -24,7 +26,7 @@ driver = webdriver.Chrome(options=options)
 
 driver.implicitly_wait(0.5)
 
-print("\n\n\n")
+print("\n")
 
 def load_page(url):
     # Set stuff up
@@ -36,7 +38,6 @@ def print_page_details():
 
     title = driver.title
     print(f"The title is: {title}")
-
 
 def accept_cookies():
     # Accept the cookies
@@ -65,30 +66,27 @@ def collect_page_pics():
     try:
         driver.find_element(By.ID, 'image-0').find_element(By.TAG_NAME, 'button').click()
     except NoSuchElementException:
-        print("This should only happen if there aren't many images for this listing")
+        print("show next image button not showing on first image (fine if only 1 image there)\n")
 
     from pathlib import Path
     Path("images").mkdir(parents=False, exist_ok=True)
 
     images = driver.find_element(By.CLASS_NAME, "fullscreen-modal").find_elements(By.CLASS_NAME, "slick-slide")
     
-    print(f'\n\nIMAGES: {len(images)}')
     while True:
         try:
             driver.find_element(By.CLASS_NAME, "show-gallery").find_element(By.CLASS_NAME, "iVKNPy").click()
         except ElementNotInteractableException:
-            print("while true loop done")
             break
         except NoSuchElementException:
-            print("This should probably only happen if theres only one image")
+            print("This should probably only happen if theres only one image\n")
             break
 
 
     img_elements = driver.find_element(By.CLASS_NAME, "fullscreen-modal").find_elements(By.TAG_NAME, "img")
-    print(f'images?:{len(img_elements)}\n\n')
 
     if (len(images)!=len(img_elements)):
-        print("Not all the images are loaded, something has gone wrong")
+        print("Not all the images are loaded, something has gone wrong\n")
 
     current_index=len(os.listdir("images"))
     for element in img_elements:
@@ -100,7 +98,7 @@ def collect_page_pics():
 
 def process_page(url):
     load_page(url)
-    print_page_details()
+    #print_page_details()
     if cookie_box_visible():
         accept_cookies()
     collect_page_pics()
@@ -128,21 +126,26 @@ def process_results_page(input_arg_dict, num_pages):
             accept_cookies()
 
         max_pages = int(driver.find_element(By.XPATH, '//p[@data-testid="pagination-show"]').text.split(" ")[-1])
-        print(f"MAXIMUM NUMBER OF PAGES {max_pages}")
         
         url_list = get_all_links()
         process_list(url_list)
 
         if current_page>=max_pages:
-            print("max number of pages reached")
+            print("max number of pages reached\n")
             break
 
+try:
+    shutil.rmtree("images")
+except OSError:
+    print("error occured deleting folder")
 
 argument_dict = {"make":"Mazda",
                 "model":"MX-5"}
-pages_to_collect = 2
+pages_to_collect = 3
+
+start_time = time.time()
 
 process_results_page(argument_dict, pages_to_collect)
 
-
-print("\n\n\n")
+time_taken = int(time.time() - start_time)
+print(f"\nDone!\nCollected {len(os.listdir('images'))} images in {int(time_taken/3600)} hours, {int(time_taken/60)} minutes, {int(time_taken%60)} seconds")
