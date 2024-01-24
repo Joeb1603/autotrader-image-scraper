@@ -79,6 +79,10 @@ def collect_page_pics():
         except ElementNotInteractableException:
             print("while true loop done")
             break
+        except NoSuchElementException:
+            print("This should probably only happen if theres only one image")
+            break
+
 
     img_elements = driver.find_element(By.CLASS_NAME, "fullscreen-modal").find_elements(By.TAG_NAME, "img")
     print(f'images?:{len(img_elements)}\n\n')
@@ -110,13 +114,35 @@ def get_all_links():
     page_urls = [element.get_attribute("href") for element in link_elements]
     return page_urls
 
-def process_results_page(results_page):
-    load_page(results_page)
-    if cookie_box_visible():
-        accept_cookies()
-    url_list = get_all_links()
-    process_list(url_list)
+def process_results_page(input_arg_dict, num_pages):
+    arguments = ['='.join([x,y]) for x,y in input_arg_dict.items()]
+    arguments_combined = '&'.join(arguments)
 
-process_results_page('https://www.autotrader.co.uk/car-search?postcode=NE16an&make=Mazda&model=MX-5&page=1')
+    for page_num_idx in range(num_pages):
+        current_page = page_num_idx+1
+        results_page = f'https://www.autotrader.co.uk/car-search?postcode=NE16an&{arguments_combined}&page={current_page}'
+        
+        load_page(results_page)
+
+        if cookie_box_visible():
+            accept_cookies()
+
+        max_pages = int(driver.find_element(By.XPATH, '//p[@data-testid="pagination-show"]').text.split(" ")[-1])
+        print(f"MAXIMUM NUMBER OF PAGES {max_pages}")
+        
+        url_list = get_all_links()
+        process_list(url_list)
+
+        if current_page>=max_pages:
+            print("max number of pages reached")
+            break
+
+
+argument_dict = {"make":"Mazda",
+                "model":"MX-5"}
+pages_to_collect = 2
+
+process_results_page(argument_dict, pages_to_collect)
+
 
 print("\n\n\n")
