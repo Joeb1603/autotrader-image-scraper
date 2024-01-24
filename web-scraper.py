@@ -19,6 +19,7 @@ from selenium.common.exceptions import NoSuchElementException, ElementNotInterac
 options = webdriver.ChromeOptions()
 options.add_experimental_option("detach", True)
 options.add_experimental_option('excludeSwitches', ['enable-logging'])
+options.page_load_strategy = 'eager'
 driver = webdriver.Chrome(options=options)
 
 driver.implicitly_wait(0.5)
@@ -61,7 +62,10 @@ def collect_page_pics():
     
     driver.find_element(By.CLASS_NAME, 'image-gallery-button').click()
 
-    driver.find_element(By.ID, 'image-0').find_element(By.TAG_NAME, 'button').click()
+    try:
+        driver.find_element(By.ID, 'image-0').find_element(By.TAG_NAME, 'button').click()
+    except NoSuchElementException:
+        print("This should only happen if there aren't many images for this listing")
 
     from pathlib import Path
     Path("images").mkdir(parents=False, exist_ok=True)
@@ -101,12 +105,18 @@ def process_list(url_list):
     for current_url in url_list:
         process_page(current_url)
 
-cars = ["https://www.autotrader.co.uk/car-details/202312235033722",
-        "https://www.autotrader.co.uk/car-details/202401125480291",
-        "https://www.autotrader.co.uk/car-details/202310293448704",
-        "https://www.autotrader.co.uk/car-details/202312154833791",
-        "https://www.autotrader.co.uk/car-details/202311214162461"]
+def get_all_links():
+    link_elements = driver.find_element(By.XPATH, "//ul[@data-testid='desktop-search']").find_elements(By.XPATH, '//a[@data-testid="search-listing-title"]')
+    page_urls = [element.get_attribute("href") for element in link_elements]
+    return page_urls
 
-process_list(cars)
+def process_results_page(results_page):
+    load_page(results_page)
+    if cookie_box_visible():
+        accept_cookies()
+    url_list = get_all_links()
+    process_list(url_list)
+
+process_results_page('https://www.autotrader.co.uk/car-search?postcode=NE16an&make=Mazda&model=MX-5&page=1')
 
 print("\n\n\n")
