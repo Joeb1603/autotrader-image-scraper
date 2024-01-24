@@ -16,7 +16,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.support.wait import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from selenium.common.exceptions import NoSuchElementException, ElementNotInteractableException
+from selenium.common.exceptions import NoSuchElementException, ElementNotInteractableException, StaleElementReferenceException
 
 options = webdriver.ChromeOptions()
 options.add_experimental_option("detach", True)
@@ -75,7 +75,8 @@ def collect_page_pics():
     
     while True:
         try:
-            driver.find_element(By.CLASS_NAME, "show-gallery").find_element(By.CLASS_NAME, "iVKNPy").click()
+            driver.find_element(By.CLASS_NAME, "show-gallery").find_element(By.XPATH, '//button[@aria-label="Next image"]').click()
+            #driver.find_element(By.CLASS_NAME, "show-gallery").find_element(By.CLASS_NAME, "iVKNPy").click()
         except ElementNotInteractableException:
             break
         except NoSuchElementException:
@@ -103,8 +104,13 @@ def process_page(url):
         accept_cookies()
     try:
         collect_page_pics()
-    except NoSuchElementException:
+    except NoSuchElementException: # StaleElementReferenceException
         print("Something went wrong collecting images from the page, skipping")
+    except StaleElementReferenceException as e:
+        print("Not really sure what causes this, but it's bad - skipping to next page")
+        print(e)
+        print("\nError printed above\n\n")
+
 
 def process_list(url_list):
     for current_url in url_list:
@@ -137,18 +143,24 @@ def process_results_page(input_arg_dict, num_pages):
             print("max number of pages reached\n")
             break
 
-try:
-    shutil.rmtree("images")
-except OSError:
-    print("error occured deleting folder")
+def delete_old_dir():
+    try:
+        shutil.rmtree("images")
+    except OSError:
+        print("error occured deleting folder")
 
-argument_dict = {"make":"Mazda",
-                "model":"MX-5"}
-pages_to_collect = 100
+def run_multipage():
+    argument_dict = {"make":"Mazda",
+                    "model":"MX-5"}
+    pages_to_collect = 100
 
-start_time = time.time()
+    start_time = time.time()
 
-process_results_page(argument_dict, pages_to_collect)
+    process_results_page(argument_dict, pages_to_collect)
 
-time_taken = int(time.time() - start_time)
-print(f"\nDone!\nCollected {len(os.listdir('images'))} images in {int(time_taken/3600)} hours, {int(time_taken/60)} minutes, {int(time_taken%60)} seconds")
+    time_taken = int(time.time() - start_time)
+    print(f"\nDone!\nCollected {len(os.listdir('images'))} images in {int(time_taken/3600)} hours, {int(time_taken/60)} minutes, {int(time_taken%60)} seconds")
+    # Runs at roughly 1 page every 2 minutes
+
+delete_old_dir()
+run_multipage()
