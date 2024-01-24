@@ -101,7 +101,10 @@ def process_page(url):
     #print_page_details()
     if cookie_box_visible():
         accept_cookies()
-    collect_page_pics()
+    try:
+        collect_page_pics()
+    except NoSuchElementException:
+        print("Something went wrong collecting images from the page, skipping")
 
 def process_list(url_list):
     for current_url in url_list:
@@ -141,7 +144,7 @@ except OSError:
 
 argument_dict = {"make":"Mazda",
                 "model":"MX-5"}
-pages_to_collect = 3
+pages_to_collect = 100
 
 start_time = time.time()
 
