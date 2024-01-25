@@ -1,3 +1,5 @@
 *
 !web-scraper.py
 !gitignore
+!car_detector.py
+!yolov7-requirements.txt
