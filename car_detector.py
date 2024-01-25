@@ -32,11 +32,14 @@ save_img = True
 img_name = "img0.jpg"
 txt_name = "img0.txt"
 
+import warnings
+warnings.filterwarnings("ignore", category=DeprecationWarning) 
+warnings.filterwarnings("ignore", category=UserWarning) 
+
 # Directories
 save_dir = ""
 
 # Initialize
-set_logging()
 device = select_device('0')
 half = device.type != 'cpu'  # half precision only supported on CUDA
 
@@ -47,15 +50,6 @@ imgsz = check_img_size(imgsz, s=stride)  # check img_size
 
 if half:
     model.half()  # to FP16
-
-# Second-stage classifier
-classify = False
-if classify:
-    modelc = load_classifier(name='resnet101', n=2)  # initialize
-    modelc.load_state_dict(torch.load('weights/resnet101.pt', map_location=device)['model']).to(device).eval()
-
-# Set Dataloader
-vid_path, vid_writer = None, None
 
 dataset = LoadImages(source, img_size=imgsz, stride=stride)
 
@@ -69,6 +63,8 @@ if device.type != 'cpu':
 old_img_w = old_img_h = imgsz
 old_img_b = 1
 
+print("\n")
+
 t0 = time.time()
 for path, img, im0s, vid_cap in dataset:
     img = torch.from_numpy(img).to(device)
@@ -76,6 +72,8 @@ for path, img, im0s, vid_cap in dataset:
     img /= 255.0  # 0 - 255 to 0.0 - 1.0
     if img.ndimension() == 3:
         img = img.unsqueeze(0)
+
+    
 
     # Warmup
     if device.type != 'cpu' and (old_img_b != img.shape[0] or old_img_h != img.shape[2] or old_img_w != img.shape[3]):
@@ -95,10 +93,6 @@ for path, img, im0s, vid_cap in dataset:
     pred = non_max_suppression(pred, conf_thres, iou_thres, classes=None, agnostic=False)
     t3 = time_synchronized()
 
-    # Apply Classifier
-    if classify:
-        pred = apply_classifier(pred, modelc, img, im0s)
-
     # Process detections
     for i, det in enumerate(pred):  # detections per image
         if webcam:  # batch_size >= 1
@@ -106,7 +100,6 @@ for path, img, im0s, vid_cap in dataset:
         else:
             p, s, im0, frame = path, '', im0s, getattr(dataset, 'frame', 0)
 
-        p = Path(p)  # to Path
         save_path = img_name
         txt_path = txt_name  
         gn = torch.tensor(im0.shape)[[1, 0, 1, 0]]  # normalization gain whwh
@@ -132,7 +125,7 @@ for path, img, im0s, vid_cap in dataset:
                     plot_one_box(xyxy, im0, label=label, color=colors[int(cls)], line_thickness=1)
 
         # Print time (inference + NMS)
-        print(f'{s}Done. ({(1E3 * (t2 - t1)):.1f}ms) Inference, ({(1E3 * (t3 - t2)):.1f}ms) NMS')
+        print(f'{s}Done. ({(1E3 * (t2 - t1)):.1f}ms) Inference, ({(1E3 * (t3 - t2)):.1f}ms) NMS\n')
 
         # Stream results
         if view_img:
@@ -143,7 +136,7 @@ for path, img, im0s, vid_cap in dataset:
         if save_img:
             if dataset.mode == 'image':
                 cv2.imwrite(save_path, im0)
-                print(f" The image with the result is saved in: {save_path}")
+                print(f"The image with the result is saved in: {save_path}\n")
             else:  # 'video' or 'stream'
                 if vid_path != save_path:  # new video
                     vid_path = save_path
