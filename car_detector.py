@@ -30,7 +30,7 @@ save_txt = False
 view_img = False
 save_img = True
 img_name = "img0.jpg"
-txt_name = "img0.txt"
+txt_name = "img0"
 
 import warnings
 warnings.filterwarnings("ignore", category=DeprecationWarning) 
@@ -116,7 +116,7 @@ for path, img, im0s, vid_cap in dataset:
             for *xyxy, conf, cls in reversed(det):
                 if save_txt:  # Write to file
                     xywh = (xyxy2xywh(torch.tensor(xyxy).view(1, 4)) / gn).view(-1).tolist()  # normalized xywh
-                    line = (cls, *xywh, conf) if opt.save_conf else (cls, *xywh)  # label format
+                    line = (cls, *xywh, conf) if True else (cls, *xywh)  # label format
                     with open(txt_path + '.txt', 'a') as f:
                         f.write(('%g ' * len(line)).rstrip() % line + '\n')
 
@@ -153,7 +153,7 @@ for path, img, im0s, vid_cap in dataset:
                 vid_writer.write(im0)
 
 if save_txt or save_img:
-    s = f"\n{len(list(save_dir.glob('labels/*.txt')))} labels saved to {save_dir / 'labels'}" if save_txt else ''
+    s = "" if save_txt else ''
     #print(f"Results saved to {save_dir}{s}")
 
 print(f'Done. ({time.time() - t0:.3f}s)')
