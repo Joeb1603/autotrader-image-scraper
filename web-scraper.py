@@ -73,6 +73,8 @@ def collect_page_pics():
 
     images = driver.find_element(By.CLASS_NAME, "fullscreen-modal").find_elements(By.CLASS_NAME, "slick-slide")
     
+    timed_out_already = False
+
     while True:
         try:
             driver.find_element(By.CLASS_NAME, "show-gallery").find_element(By.XPATH, '//button[@aria-label="Next image"]').click()
@@ -92,9 +94,20 @@ def collect_page_pics():
     current_index=len(os.listdir("images"))
     for element in img_elements:
         current_url = element.get_attribute("src")
-        data = requests.get(current_url).content 
+
+        try:
+            data = requests.get(current_url).content 
+        except requests.exceptions.ConnectionError:
+            if timed_out_already:
+                break
+            print("Too many requests, taking a break")
+            time.sleep(60*5)
+            timed_out_already = True
+        
         with open(f'images/{current_index}.png','wb') as handler:
             handler.write(data) 
+
+
         current_index+=1
 
 def process_page(url):
