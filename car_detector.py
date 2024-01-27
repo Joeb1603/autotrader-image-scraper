@@ -1,11 +1,11 @@
 import sys
-import argparse
+#import argparse
 import time
 from pathlib import Path
 
 import cv2
 import torch
-import torch.backends.cudnn as cudnn
+#import torch.backends.cudnn as cudnn
 from numpy import random
 import shutil
 import warnings
@@ -17,95 +17,39 @@ sys.path.insert(0, path_to_yolo)
 
 # imports from yolov7 folder
 from models.experimental import attempt_load
-from utils.datasets import LoadStreams, LoadImages
-from utils.general import check_img_size, check_requirements, check_imshow, non_max_suppression, apply_classifier, \
-    scale_coords, xyxy2xywh, strip_optimizer, set_logging, increment_path
+from utils.datasets import letterbox
+from utils.general import check_img_size, non_max_suppression, scale_coords, xyxy2xywh 
 from utils.plots import plot_one_box
-from utils.torch_utils import select_device, load_classifier, time_synchronized, TracedModel
+from utils.torch_utils import select_device, time_synchronized
 
 car_path = "contains-car" # probably shouldn't have these outside the functions but it works
 no_car_path = "no-car"
 
-import glob
+class NewLoadImages:  # Slightly modified and stripped down dataloader from yolov7
 
-import glob
-import logging
-import os
-import random
-import time
-
-from copy import deepcopy
-#from pycocotools import mask as maskUtils
-from torchvision.utils import save_image
-from torchvision.ops import roi_pool, roi_align, ps_roi_pool, ps_roi_align
-
-
-# Parameters
-help_url = 'https://github.com/ultralytics/yolov5/wiki/Train-Custom-Data'
-img_formats = ['bmp', 'jpg', 'jpeg', 'png', 'tif', 'tiff', 'dng', 'webp', 'mpo']  # acceptable image suffixes
-vid_formats = ['mov', 'avi', 'mp4', 'mpg', 'mpeg', 'm4v', 'wmv', 'mkv']  # acceptable video suffixes
-logger = logging.getLogger(__name__)
-
-def letterbox(img, new_shape=(640, 640), color=(114, 114, 114), auto=True, scaleFill=False, scaleup=True, stride=32):
-    # Resize and pad image while meeting stride-multiple constraints
-    shape = img.shape[:2]  # current shape [height, width]
-    if isinstance(new_shape, int):
-        new_shape = (new_shape, new_shape)
-
-    # Scale ratio (new / old)
-    r = min(new_shape[0] / shape[0], new_shape[1] / shape[1])
-    if not scaleup:  # only scale down, do not scale up (for better test mAP)
-        r = min(r, 1.0)
-
-    # Compute padding
-    ratio = r, r  # width, height ratios
-    new_unpad = int(round(shape[1] * r)), int(round(shape[0] * r))
-    dw, dh = new_shape[1] - new_unpad[0], new_shape[0] - new_unpad[1]  # wh padding
-    if auto:  # minimum rectangle
-        dw, dh = np.mod(dw, stride), np.mod(dh, stride)  # wh padding
-    elif scaleFill:  # stretch
-        dw, dh = 0.0, 0.0
-        new_unpad = (new_shape[1], new_shape[0])
-        ratio = new_shape[1] / shape[1], new_shape[0] / shape[0]  # width, height ratios
-
-    dw /= 2  # divide padding into 2 sides
-    dh /= 2
-
-    if shape[::-1] != new_unpad:  # resize
-        img = cv2.resize(img, new_unpad, interpolation=cv2.INTER_LINEAR)
-    top, bottom = int(round(dh - 0.1)), int(round(dh + 0.1))
-    left, right = int(round(dw - 0.1)), int(round(dw + 0.1))
-    img = cv2.copyMakeBorder(img, top, bottom, left, right, cv2.BORDER_CONSTANT, value=color)  # add border
-    return img, ratio, (dw, dh)
-
-class NewLoadImages:  # Slightly modified dataloader from yolov7
     def __init__(self, path, img_size=640, stride=32):
+
+        img_formats = ['bmp', 'jpg', 'jpeg', 'png', 'tif', 'tiff', 'dng', 'webp', 'mpo']  # acceptable image suffixes
+
         p = str(Path(path).absolute())  # os-agnostic absolute path
-        if '*' in p:
-            files = sorted(glob.glob(p, recursive=True))  # glob
-        elif os.path.isdir(p):
-            files = sorted(glob.glob(os.path.join(p, '*.*')))  # dir
-        elif os.path.isfile(p):
+   
+        if os.path.isfile(p):
             files = [p]  # files
         else:
             raise Exception(f'ERROR: {p} does not exist')
 
         images = [x for x in files if x.split('.')[-1].lower() in img_formats]
-        videos = [x for x in files if x.split('.')[-1].lower() in vid_formats]
-        ni, nv = len(images), len(videos)
+       
+        ni = len(images)
 
         self.img_size = img_size
         self.stride = stride
-        self.files = images + videos
-        self.nf = ni + nv  # number of files
-        self.video_flag = [False] * ni + [True] * nv
+        self.files = images 
+        self.nf = ni  # number of files
         self.mode = 'image'
-        if any(videos):
-            self.new_video(videos[0])  # new video
-        else:
-            self.cap = None
-        assert self.nf > 0, f'No images or videos found in {p}. ' \
-                            f'Supported formats are:\nimages: {img_formats}\nvideos: {vid_formats}'
+        self.cap = None
+        assert self.nf > 0, f'No images found in {p}. ' \
+                            f'Supported formats are:\nimages: {img_formats}'
 
     def __iter__(self):
         self.count = 0
@@ -116,29 +60,10 @@ class NewLoadImages:  # Slightly modified dataloader from yolov7
             raise StopIteration
         path = self.files[self.count]
 
-        if self.video_flag[self.count]:
-            # Read video
-            self.mode = 'video'
-            ret_val, img0 = self.cap.read()
-            if not ret_val:
-                self.count += 1
-                self.cap.release()
-                if self.count == self.nf:  # last video
-                    raise StopIteration
-                else:
-                    path = self.files[self.count]
-                    self.new_video(path)
-                    ret_val, img0 = self.cap.read()
-
-            self.frame += 1
-            print(f'video {self.count + 1}/{self.nf} ({self.frame}/{self.nframes}) {path}: ', end='')
-
-        else:
-            # Read image
-            self.count += 1
-            img0 = cv2.imread(path)  # BGR
-            assert img0 is not None, 'Image Not Found ' + path
-            #print(f'image {self.count}/{self.nf} {path}: ', end='')
+        # Read image
+        self.count += 1
+        img0 = cv2.imread(path)  # BGR
+        assert img0 is not None, 'Image Not Found ' + path
 
         img0 = remove_borders(img0)
 
@@ -150,11 +75,6 @@ class NewLoadImages:  # Slightly modified dataloader from yolov7
         img = np.ascontiguousarray(img)
 
         return path, img, img0, self.cap
-
-    def new_video(self, path):
-        self.frame = 0
-        self.cap = cv2.VideoCapture(path)
-        self.nframes = int(self.cap.get(cv2.CAP_PROP_FRAME_COUNT))
 
     def __len__(self):
         return self.nf  # number of files
@@ -315,9 +235,6 @@ def contains_car(input_image):
                         label = f'{names[int(cls)]} {conf:.2f}'
                         plot_one_box(xyxy, im0, label=label, color=colors[int(cls)], line_thickness=1)
 
-            # Print time (inference + NMS)
-            #print(f'\n{s}Done. ({(1E3 * (t2 - t1)):.1f}ms) Inference, ({(1E3 * (t3 - t2)):.1f}ms) NMS\n')
-
             if just_return:
                 return True if car_found else False
             
@@ -326,14 +243,13 @@ def contains_car(input_image):
                 prefix = car_path if car_found else no_car_path
                 save_path = f"img{len(os.listdir(car_path))}.jpg" if car_found else f"img{len(os.listdir(no_car_path))}.jpg"
                 cv2.imwrite(os.path.join(prefix,save_path), im0)
-                #print(f"The image with the result is saved in: {save_path}\n")
 
     print(f'Done. ({time.time() - t0:.3f}s)')
 
     return True if car_found else False
 
-reset_folder()
 
+reset_folder()
 pics = os.listdir('images')
 
 for current_image in pics:
